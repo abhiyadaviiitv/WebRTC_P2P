@@ -41,6 +41,7 @@ const VideoChat: React.FC = () => {
     ]
   };
 
+
   const waitForRemoteVideoRef = () => {
     return new Promise<HTMLVideoElement>((resolve, reject) => {
       const checkInterval = setInterval(() => {
@@ -554,7 +555,7 @@ const VideoChat: React.FC = () => {
       onDisconnect: () => {
         console.log("WebSocket disconnected");
         setConnectionStatus('disconnected');
-        resetConnection();
+          resetConnection();
       },
       
       onStompError: (frame) => {
@@ -688,17 +689,11 @@ const VideoChat: React.FC = () => {
       <div className="user-list">
         <h3>Online Users ({Object.keys(onlineUsers).length})</h3>
         <ul>
-          {Object.entries(onlineUsers).map(([userId, status]) => (
+          {Object.entries(onlineUsers).map(([userId]) => (
             <li key={userId}>
               {userId === clientIdRef.current 
                 ? "You" 
                 : userId
-              } 
-              {status === null 
-                ? " (You)" 
-                : status 
-                  ? " (In Call)" 
-                  : " (Available)"
               }
             </li>
           ))}

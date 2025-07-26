@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
@@ -15,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.StringUtils;
+import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
 import webrtc.p2p.dto.SignalingMessage;
 @Controller
@@ -60,12 +62,14 @@ public class WebRTCSignalingController {
         this.messagingTemplate = messagingTemplate;
     }
 
+    
+
     @MessageMapping("/join")
 public void handleJoin(@Payload SignalingMessage message, SimpMessageHeaderAccessor headerAccessor) {
     if (!isValidMessage(message) || !StringUtils.hasText(message.getSender())) {
         return;
     }
-
+    
     String userId = message.getSender();
     System.out.println("User " + userId + " joining lobby");
     
@@ -115,13 +119,17 @@ private void broadcastFullLobbyStatus() {
     System.out.println("Broadcasted lobby status to all users");
 }
 
-    @MessageMapping("/leave")
-    public void handleLeave(@Payload SignalingMessage message) {
-        if (!StringUtils.hasText(message.getSender())) {
-            return;
-        }
-        removeUserFromSystem(message.getSender());
+    @EventListener
+public void handleSessionDisconnect(SessionDisconnectEvent event) {
+       SimpMessageHeaderAccessor accessor =
+        SimpMessageHeaderAccessor.wrap(event.getMessage());
+    String userId = (String) accessor.getSessionAttributes().get("userId");
+    if (userId != null) {
+        removeUserFromSystem(userId);
+        broadcastFullLobbyStatus();   // push fresh lobby to all
+        System.out.println("User disconnected (session closed): " + userId);
     }
+}
 
    @MessageMapping("/start-call")
 public void handleStartCall(@Payload SignalingMessage message, SimpMessageHeaderAccessor headerAccessor) {
