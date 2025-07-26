@@ -2,6 +2,16 @@ import { Client } from '@stomp/stompjs';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
 
+import { Mic, MicOff, Phone, PhoneOff, Send, Video, VideoOff, } from 'lucide-react';
+
+interface ChatMessage {
+  id: string;
+  sender: string;
+  message: string;
+  timestamp: Date;
+  isSelf: boolean;
+}
+
 interface UserStatus {
   [userId: string]: boolean | null; // true = call active
 }
@@ -29,7 +39,19 @@ const VideoChat: React.FC = () => {
   const pendingIceCandidatesRef = useRef<RTCIceCandidate[]>([]);
   const roleRef = useRef<string | null>(null);
 
-  // WebRTC Configuration
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+  if (chatContainerRef.current)
+    chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+}, [chatMessages]);
+
+  // WebRTC Configurationa
   const ICE_CONFIG: RTCConfiguration = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -145,6 +167,8 @@ const VideoChat: React.FC = () => {
             sender: clientIdRef.current
           })
         });
+
+        initLocalStream();
       }
     } catch (error) {
       console.error('Connection reset error:', error);
@@ -473,12 +497,46 @@ const VideoChat: React.FC = () => {
             console.error('Error adding ICE candidate:', error);
           }
           break;
+
+          case 'chat':
+  { const chatMsg: ChatMessage = {
+    id: crypto.randomUUID(),
+    sender: message.sender,
+    message: message.data,
+    timestamp: new Date(message.timestamp || Date.now()),
+    isSelf: message.sender === clientIdRef.current
+  };
+  setChatMessages(prev => [...prev, chatMsg]);
+  break; }
+
       }
     } catch (error) {
       console.error('Error handling message:', error);
       setError(`Failed to handle ${message.type} message`);
     }
   }, [handleRemoteOffer, resetConnection]);
+
+
+  const handleChatMessage = (text: string) => {
+  if (!text.trim() || !remotePeerId) return;
+  const msg: ChatMessage = { id: crypto.randomUUID(), sender: clientIdRef.current, message: text.trim(), timestamp: new Date(), isSelf: true };
+  setChatMessages(p => [...p, msg]);
+  console.log(`trying to send the message in the room ${currentRoomRef.current}`)
+  stompClientRef.current?.publish({
+    destination: `/app/chat/${currentRoomRef.current}`,
+    body: JSON.stringify({ type: 'chat', data: text.trim()  , sender: clientIdRef.current })
+  });
+  setChatInput('');
+};
+
+const toggleMicrophone = () => {
+  const audio = localStreamRef.current?.getAudioTracks()[0];
+  if (audio) { audio.enabled = !audio.enabled; setIsMuted(!audio.enabled); }
+};
+const toggleVideo = () => {
+  const video = localStreamRef.current?.getVideoTracks()[0];
+  if (video) { video.enabled = !video.enabled; setIsVideoOff(!video.enabled); }
+};
 
   // Start call with a peer
   const startCall = useCallback(async () => {
@@ -540,6 +598,9 @@ const VideoChat: React.FC = () => {
           handleSignalingMessage(JSON.parse(message.body)));
 
         client.subscribe('/user/'+ clientIdRef.current +'/queue/private/signal/', (message) => 
+          handleSignalingMessage(JSON.parse(message.body)));
+        
+        client.subscribe('/user/'+ clientIdRef.current +'/queue/private/chat/', (message) => 
           handleSignalingMessage(JSON.parse(message.body)));
         
         // Send join message
@@ -619,39 +680,56 @@ const VideoChat: React.FC = () => {
 
   // Render method with improved status display
   return (
-    <div className="webrtc-container">
-      <div className="video-container">
-        <div className="video-wrapper">
-          <h3>Local Stream</h3>
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className="video-element"
-            style={{ width: '300px', height: '200px', backgroundColor: '#000' }}
-          />
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+    <div className="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      {/* ---------- Videos ---------- */}
+      <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="relative bg-black rounded-xl overflow-hidden shadow-2xl">
+          <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-64 md:h-80 object-cover" />
+          <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-sm">Local</div>
         </div>
-        <div className="video-wrapper">
-          <h3>Remote Stream</h3>
+        <div className="relative bg-black rounded-xl overflow-hidden shadow-2xl">
           {isConnecting ? (
-            <div className="connecting-loader">
-              <div className="spinner"></div>
-              <p>Connecting to peer...</p>
+            <div className="flex items-center justify-center h-64 md:h-80 bg-gray-800">
+              <div className="animate-spin h-12 w-12 border-4 border-purple-500 rounded-full" />
             </div>
           ) : (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className="video-element"
-              style={{ width: '300px', height: '200px', backgroundColor: '#000' }}
-            />
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-64 md:h-80 object-cover" />
           )}
+          <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-sm">
+            {remotePeerId ? `${remotePeerId.slice(0, 8)}…` : 'Waiting…'}
+          </div>
         </div>
       </div>
-     
-      <div className="status-container">
+
+      {/* ---------- Chat ---------- */}
+      <div className="bg-white/10 backdrop-blur-lg rounded-xl flex flex-col h-full">
+        <div className="p-3 border-b border-white/20 font-semibold">💬 Chat</div>
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+          {chatMessages.map(m => (
+            <div key={m.id} className={`flex ${m.isSelf ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-xs px-3 py-1.5 rounded-lg ${m.isSelf ? 'bg-purple-600' : 'bg-white/20'}`}>
+                <p className="text-sm">{m.message}</p>
+                <p className="text-xs opacity-70">{m.timestamp.toLocaleTimeString()}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <form onSubmit={e => { e.preventDefault(); handleChatMessage(chatInput); }} className="flex gap-2 p-3 border-t border-white/20">
+          <input
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            placeholder="Type…"
+            disabled={!remotePeerId}
+            className="flex-1 px-3 py-1.5 bg-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+          <button type="submit" disabled={!remotePeerId || !chatInput.trim()} className="p-2 bg-purple-600 rounded-lg"><Send size={18} /></button>
+        </form>
+      </div>
+
+      {/* ---------- Status Container (UNCHANGED) ---------- */}
+      <div className="lg:col-span-3 bg-white/10 backdrop-blur-lg rounded-xl p-4 mt-6 status-container">
         <div>Connection Status: <span className={connectionStatus}>{connectionStatus}</span></div>
         <div>Client ID: {clientIdRef.current}</div>
         <div>Peer Connection State: {connectionState}</div>
@@ -662,45 +740,29 @@ const VideoChat: React.FC = () => {
         <div>Role: {roleRef.current || 'None'}</div>
         <div>Remote Peer: {remotePeerId || 'None'}</div>
         {error && (
-          <div className="error-message">
+          <div className="error-message mt-2">
             Error: {error}
-            <button onClick={() => setError(null)}>Dismiss</button>
+            <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
           </div>
         )}
       </div>
-     
-      <div className="controls">
-        <button
-          onClick={startCall}
-          disabled={isCallActive || connectionStatus !== 'connected' || Object.keys(onlineUsers).length === 0}
-          className="control-button"
-        >
-          Start Call
+
+      {/* ---------- Controls (mute / video / call buttons) ---------- */}
+      <div className="lg:col-span-3 flex justify-center gap-4 mt-4">
+        <button onClick={toggleMicrophone} className={`p-3 rounded-full ${isMuted ? 'bg-red-500' : 'bg-purple-600'}`}>
+          {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
         </button>
-        <button
-          onClick={resetConnection}
-          disabled={!isCallActive && !isConnecting}
-          className="control-button end-call"
-        >
-          End Call
+        <button onClick={toggleVideo} className={`p-3 rounded-full ${isVideoOff ? 'bg-red-500' : 'bg-purple-600'}`}>
+          {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
         </button>
+        <button onClick={startCall} disabled={isCallActive || connectionStatus !== 'connected' || Object.keys(onlineUsers).length === 0} className="p-3 bg-green-500 rounded-full disabled:opacity-50"><Phone size={24} /></button>
+        <button onClick={resetConnection} disabled={!isCallActive && !isConnecting} className="p-3 bg-red-500 rounded-full disabled:opacity-50"><PhoneOff size={24} /></button>
       </div>
-      
-      <div className="user-list">
-        <h3>Online Users ({Object.keys(onlineUsers).length})</h3>
-        <ul>
-          {Object.entries(onlineUsers).map(([userId]) => (
-            <li key={userId}>
-              {userId === clientIdRef.current 
-                ? "You" 
-                : userId
-              }
-            </li>
-          ))}
-        </ul>
-      </div>
+
     </div>
-  );
+  </div>
+);
+
 };
 
 export default VideoChat;

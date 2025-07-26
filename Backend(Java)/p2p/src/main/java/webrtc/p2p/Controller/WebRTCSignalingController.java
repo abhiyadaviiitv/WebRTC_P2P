@@ -244,6 +244,8 @@ public void handleStartCall(@Payload SignalingMessage message, SimpMessageHeader
         handleJoin(message ,headerAccessor);
     }
 
+
+    // used for exchanging offers and answers can be also used for chat but better to have a different one
     @MessageMapping("/signal/{roomId}")
     public void handleRoomSignal(@Payload SignalingMessage message,
                                @DestinationVariable String roomId) {
@@ -331,32 +333,6 @@ public void handleStartCall(@Payload SignalingMessage message, SimpMessageHeader
             .map(Map.Entry::getKey)
             .orElse(null);
     }
-
-//     private void sendLobbyInfoToUser(String userId) {
-//     Map<String, Boolean > lobbyStatus = new HashMap<>();
-    
-//     // Include ALL users (including self) but mark self differently
-//     lobbyUsers.forEach((id, info) -> {
-//         if (id.equals(userId)) {
-//             lobbyStatus.put(id, null); // Special marker for self
-//         } else {
-//             lobbyStatus.put(id, info.isCallActive());
-//         }
-//     });
-    
-//     System.out.println("Sending lobby info to " + userId + ": " + lobbyStatus);
-    
-//     try {
-//         messagingTemplate.convertAndSendToUser(
-//             userId,
-//             "/queue/private/lobby-info",
-//             new SignalingMessage("lobby-info", lobbyStatus, "server", userId),msgHeader.createHeaders(userId)
-//         );
-//         System.out.println("sended the signal to " + userId);
-//     } catch (Exception e) {
-//         System.err.println("Failed to send lobby info to " + userId + ": " + e.getMessage());
-//     }
-// }
 
 private void sendLobbyInfoToUser(String userId) {
     Map<String, Object> lobbyStatus = new HashMap<>();
@@ -457,8 +433,47 @@ Map<String, Object> headers = new HashMap<>();
 
         return switch (message.getType()) {
             case "offer", "answer", "ice-candidate", "join", "leave", 
-                 "peer-info", "room-info", "start-call", "end-call" -> true;
+                 "peer-info", "room-info", "start-call", "end-call" , "chat"-> true;
             default -> false;
         };
     }
+
+    @MessageMapping("/chat/{roomId}")
+public void handleChatMessage(@Payload SignalingMessage message,
+                             @DestinationVariable String roomId) {
+    if (!isValidMessage(message) || !StringUtils.hasText(message.getSender())) {
+        System.out.println("maybe stuck in this");
+        System.out.println(">>> Received chat: " + message + " in room " + roomId);
+        return;
+    }
+System.out.println(">>> Received chat: " + message + " in room " + roomId);
+
+    // // Verify sender is in the room
+    // if (!userRooms.containsKey(message.getSender()) ||
+    //     !roomId.equals(userRooms.get(message.getSender()))) {
+    //     System.out.println("Sender not in room: " + message.getSender());
+    //     return;
+    // } no need to check bcz in userrooms i have not added you only other user so this will not work if
+    
+
+    // Forward to other user in the room
+    Set<String> members = rooms.get(roomId);
+    if (members != null) {
+        for (String memberId : members) {
+            if (!memberId.equals(message.getSender())) {
+                Map<String, Object> headers = new HashMap<>();
+                headers.put("content-type", "application/json");
+                headers.put("member-id",memberId);
+                System.out.println("sending the message to the " + memberId);
+                messagingTemplate.convertAndSendToUser(
+                    memberId,
+                    "/queue/private/chat/",
+                    message,
+                    headers
+                );
+                System.out.println("msg sended");
+            }
+        }
+    }
+}
 }
