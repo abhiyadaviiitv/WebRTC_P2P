@@ -2,7 +2,8 @@ import { Client } from '@stomp/stompjs';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import SockJS from 'sockjs-client';
 
-import { Mic, MicOff, Phone, PhoneOff, Send, Video, VideoOff, } from 'lucide-react';
+import { MessageCircle, Mic, MicOff, PhoneOff, Send, SkipForward, Video, Video as VideoIcon, VideoOff } from 'lucide-react';
+import styles from './VideoChatModern.module.css';
 
 interface ChatMessage {
   id: string;
@@ -151,6 +152,10 @@ const VideoChat: React.FC = () => {
       setSignalingState('closed');
       pendingIceCandidatesRef.current = [];
       
+      // Clear chat messages when call ends
+      setChatMessages([]);
+      setChatInput('');
+      
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
@@ -173,7 +178,69 @@ const VideoChat: React.FC = () => {
     } catch (error) {
       console.error('Connection reset error:', error);
     }
-  }, [cleanupMedia]);
+  }, [cleanupMedia, initLocalStream]);
+
+  // Clear error message after a few seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 3000); // Clear after 3 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  // Next button handler - reset connection and start new call
+  const handleNextCall = useCallback(async () => {
+    try {
+      console.log('Starting next call...');
+      
+      // Clear any existing error
+      setError(null);
+      
+      // Reset connection first
+      resetConnection();
+      
+      // Wait a moment for cleanup, then start new call
+      const startNewCall = async () => {
+        try {
+          if (!stompClientRef.current?.connected) {
+            throw new Error('Not connected to signaling server');
+          }
+
+          if (!localStreamRef.current) {
+            console.log('Initializing local stream...');
+            await initLocalStream();
+          }
+
+          // Clear chat messages when starting a new call
+          setChatMessages([]);
+          setChatInput('');
+
+          stompClientRef.current.publish({
+            destination: '/app/start-call',
+            body: JSON.stringify({
+              type: 'start-call',
+              sender: clientIdRef.current
+            })
+          });
+          
+          setIsConnecting(true);
+          console.log('Next call start request sent');
+        } catch (error) {
+          console.error('Error in startNewCall:', error);
+          setError(`Failed to start next call: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      };
+
+      // Use setTimeout to ensure cleanup is complete
+      setTimeout(startNewCall, 500);
+    } catch (error) {
+      console.error('Next call error:', error);
+      setError(`Failed to start next call: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, [resetConnection, initLocalStream]);
 
   // Create peer connection
   const createPeerConnection = useCallback(async () => {
@@ -551,6 +618,10 @@ const toggleVideo = () => {
         await initLocalStream();
       }
 
+      // Clear chat messages when starting a new call
+      setChatMessages([]);
+      setChatInput('');
+
       stompClientRef.current.publish({
         destination: '/app/start-call',
         body: JSON.stringify({
@@ -680,86 +751,98 @@ const toggleVideo = () => {
 
   // Render method with improved status display
   return (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-    <div className="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      {/* ---------- Videos ---------- */}
-      <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="relative bg-black rounded-xl overflow-hidden shadow-2xl">
-          <video ref={localVideoRef} autoPlay muted playsInline className="w-full h-64 md:h-80 object-cover" />
-          <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-sm">Local</div>
-        </div>
-        <div className="relative bg-black rounded-xl overflow-hidden shadow-2xl">
-          {isConnecting ? (
-            <div className="flex items-center justify-center h-64 md:h-80 bg-gray-800">
-              <div className="animate-spin h-12 w-12 border-4 border-purple-500 rounded-full" />
-            </div>
-          ) : (
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-64 md:h-80 object-cover" />
-          )}
-          <div className="absolute top-2 left-2 bg-black/50 px-2 py-1 rounded text-sm">
-            {remotePeerId ? `${remotePeerId.slice(0, 8)}…` : 'Waiting…'}
+  <div className={styles['vc-root']}>
+    {/* Header Bar */}
+    <div className={styles['vc-header']}>
+      <div className={styles['vc-header-left']}>
+        <VideoIcon className={styles['vc-header-icon']} />
+        <span className={styles['vc-header-title']}>Video Call</span>
+        <span className={styles['vc-header-room']}>Room: {currentRoomRef.current || '----'}</span>
+      </div>
+      <div className={styles['vc-header-right']}>
+        <span className={styles['vc-online-dot']}></span>
+        <span className={styles['vc-header-online']}>{Object.keys(onlineUsers).length} Online</span>
+      </div>
+    </div>
+    {/* Main Area */}
+    <div className={styles['vc-main']}>
+      {/* Video Area */}
+      <div className={styles['vc-video-area']}>
+        <div className={styles['vc-remote-video-wrap']}>
+          <video ref={remoteVideoRef} autoPlay playsInline className={styles['vc-remote-video']} />
+          <span className={styles['vc-label'] + ' ' + styles['stranger']}>{remotePeerId ? remotePeerId.slice(0, 8) + '...' : 'Stranger'}</span>
+          {/* Local video as overlay */}
+          <div className={styles['vc-local-video-overlay']}>
+            <video ref={localVideoRef} autoPlay muted playsInline className={styles['vc-local-video']} />
+            <span className={styles['vc-label'] + ' ' + styles['you']}>Local</span>
           </div>
+          {/* Loading overlay when connecting */}
+          {isConnecting && (
+            <div className={styles['vc-loading-overlay']}>
+              <div className={styles['vc-loading-content']}>
+                <div className={styles['vc-loading-spinner']}></div>
+                <span className={styles['vc-loading-text']}>Finding new peer...</span>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Controls */}
+        <div className={styles['vc-controls']}>
+          {!isCallActive && !isConnecting ? (
+            <button onClick={startCall} className={`${styles['vc-btn']} ${styles['vc-btn-start']}`} title="Start Call">
+              Start Call
+            </button>
+          ) : (
+            <>
+              <button onClick={toggleMicrophone} className={`${styles['vc-btn']} ${isMuted ? styles['vc-muted'] : ''}`} title="Toggle Mic">{isMuted ? <MicOff size={24} /> : <Mic size={24} />}</button>
+              <button onClick={toggleVideo} className={`${styles['vc-btn']} ${isVideoOff ? styles['vc-muted'] : ''}`} title="Toggle Video">{isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}</button>
+              <button onClick={resetConnection} className={styles['vc-btn'] + ' ' + styles['vc-btn-end']} title="End Call"><PhoneOff size={24} /></button>
+              <button onClick={handleNextCall} className={styles['vc-btn'] + ' ' + styles['vc-btn-next']} title="Next"><SkipForward size={24} /></button>
+            </>
+          )}
         </div>
       </div>
-
-      {/* ---------- Chat ---------- */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-xl flex flex-col h-full">
-        <div className="p-3 border-b border-white/20 font-semibold">💬 Chat</div>
-        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+      {/* Chat Panel */}
+      <div className={styles['vc-chat-section']}>
+        <div className={styles['vc-chat-header']}><MessageCircle className={styles['vc-chat-header-icon']} /> Chat</div>
+        <div className={styles['vc-chat-body']} ref={chatContainerRef}>
           {chatMessages.map(m => (
-            <div key={m.id} className={`flex ${m.isSelf ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xs px-3 py-1.5 rounded-lg ${m.isSelf ? 'bg-purple-600' : 'bg-white/20'}`}>
-                <p className="text-sm">{m.message}</p>
-                <p className="text-xs opacity-70">{m.timestamp.toLocaleTimeString()}</p>
+            <div key={m.id} className={styles['vc-chat-msg'] + ' ' + (m.isSelf ? styles['self'] : styles['other'])}>
+              <div className={styles['vc-chat-bubble'] + ' ' + (m.isSelf ? styles['self'] : styles['other'])}>
+                <span>{m.message}</span>
+                <span className={styles['vc-chat-time']}>{m.timestamp.toLocaleTimeString()}</span>
               </div>
             </div>
           ))}
         </div>
-        <form onSubmit={e => { e.preventDefault(); handleChatMessage(chatInput); }} className="flex gap-2 p-3 border-t border-white/20">
+        <form className={styles['vc-chat-input']} onSubmit={e => { 
+          e.preventDefault(); 
+          if (chatInput.trim() && remotePeerId) {
+            handleChatMessage(chatInput);
+          }
+        }}>
           <input
             value={chatInput}
             onChange={e => setChatInput(e.target.value)}
-            placeholder="Type…"
+            placeholder="Type a message..."
             disabled={!remotePeerId}
-            className="flex-1 px-3 py-1.5 bg-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className={styles['vc-chat-input-box']}
           />
-          <button type="submit" disabled={!remotePeerId || !chatInput.trim()} className="p-2 bg-purple-600 rounded-lg"><Send size={18} /></button>
+          <button type="submit" disabled={!remotePeerId || !chatInput.trim()} className={styles['vc-chat-send']}><Send size={18} /></button>
         </form>
       </div>
-
-      {/* ---------- Status Container (UNCHANGED) ---------- */}
-      <div className="lg:col-span-3 bg-white/10 backdrop-blur-lg rounded-xl p-4 mt-6 status-container">
-        <div>Connection Status: <span className={connectionStatus}>{connectionStatus}</span></div>
-        <div>Client ID: {clientIdRef.current}</div>
-        <div>Peer Connection State: {connectionState}</div>
-        <div>ICE Connection State: {iceConnectionState}</div>
-        <div>Signaling State: {signalingState}</div>
-        <div>Online Users: {Object.keys(onlineUsers).length}</div>
-        <div>Current Room: {currentRoomRef.current || 'Not in a room'}</div>
-        <div>Role: {roleRef.current || 'None'}</div>
-        <div>Remote Peer: {remotePeerId || 'None'}</div>
-        {error && (
-          <div className="error-message mt-2">
-            Error: {error}
-            <button onClick={() => setError(null)} className="ml-2 underline">Dismiss</button>
-          </div>
-        )}
-      </div>
-
-      {/* ---------- Controls (mute / video / call buttons) ---------- */}
-      <div className="lg:col-span-3 flex justify-center gap-4 mt-4">
-        <button onClick={toggleMicrophone} className={`p-3 rounded-full ${isMuted ? 'bg-red-500' : 'bg-purple-600'}`}>
-          {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
-        </button>
-        <button onClick={toggleVideo} className={`p-3 rounded-full ${isVideoOff ? 'bg-red-500' : 'bg-purple-600'}`}>
-          {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
-        </button>
-        <button onClick={startCall} disabled={isCallActive || connectionStatus !== 'connected' || Object.keys(onlineUsers).length === 0} className="p-3 bg-green-500 rounded-full disabled:opacity-50"><Phone size={24} /></button>
-        <button onClick={resetConnection} disabled={!isCallActive && !isConnecting} className="p-3 bg-red-500 rounded-full disabled:opacity-50"><PhoneOff size={24} /></button>
-      </div>
-
     </div>
+    {/* Status Bar */}
+    <div className={styles['vc-status-bar']}>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {connectionStatus}</div>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Peer Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {connectionState}</div>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>ICE Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {iceConnectionState}</div>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Signaling:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {signalingState}</div>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Online Users:</span> {Object.keys(onlineUsers).length}</div>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Role:</span> {roleRef.current || 'None'}</div>
+      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Client ID:</span> {clientIdRef.current.slice(0, 8) + ' ...'}</div>
+    </div>
+    {error && <div className={styles['vc-error-toast']}>{error}</div>}
   </div>
 );
 
