@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Backend(Java)/p2p
+    container_name: springboot-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./Backend(Java)/p2p/target:/app/target
+    networks:
+      - my-network
+    restart: always
+
+  frontend:
+    build:
+      context: ./Frontend/webrtcp2p
+    container_name: react-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - my-network
+    restart: always
+
+networks:
+  my-network:
+    driver: bridge

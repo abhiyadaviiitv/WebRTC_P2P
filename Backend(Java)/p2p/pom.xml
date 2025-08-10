@@ -60,6 +60,7 @@
 	
 
 	<build>
+		<finalName>Backend-Webrtc-Application</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
