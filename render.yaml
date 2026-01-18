@@ -1,0 +1,24 @@
+services:
+  # Backend Service
+  - type: web
+    name: webrtc-backend
+    env: docker
+    dockerContext: ./Backend(Java)/p2p
+    plan: free
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: PORT
+        value: 8080
+
+  # Frontend Service
+  - type: web
+    name: webrtc-frontend
+    env: docker
+    dockerContext: ./Frontend/webrtcp2p
+    plan: free
+    envVars:
+      - key: PORT
+        value: 80
+      # If you use a custom domain or need to specify the backend URL explicitly:
+      # - key: VITE_API_URL
+      #   value: https://webrtc-backend.onrender.com

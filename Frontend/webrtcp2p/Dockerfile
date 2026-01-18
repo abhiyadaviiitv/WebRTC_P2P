@@ -5,6 +5,7 @@ COPY package.json .
 COPY package-lock.json .
 RUN npm install
 COPY . .
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx

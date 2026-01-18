@@ -48,9 +48,9 @@ const VideoChat: React.FC = () => {
 
 
   useEffect(() => {
-  if (chatContainerRef.current)
-    chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-}, [chatMessages]);
+    if (chatContainerRef.current)
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+  }, [chatMessages]);
 
   // WebRTC Configurationa
   const ICE_CONFIG: RTCConfiguration = {
@@ -122,7 +122,7 @@ const VideoChat: React.FC = () => {
 
     console.log(`Processing ${pendingIceCandidatesRef.current.length} pending ICE candidates`);
     const processed: number[] = [];
-    
+
     for (let i = 0; i < pendingIceCandidatesRef.current.length; i++) {
       const candidate = pendingIceCandidatesRef.current[i];
       try {
@@ -151,18 +151,18 @@ const VideoChat: React.FC = () => {
       setIceConnectionState('closed');
       setSignalingState('closed');
       pendingIceCandidatesRef.current = [];
-      
+
       // Clear chat messages when call ends
       setChatMessages([]);
       setChatInput('');
-      
+
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
-      
+
       cleanupMedia();
-      
+
       // Notify server we're ending the call
       if (stompClientRef.current?.connected) {
         stompClientRef.current.publish({
@@ -195,13 +195,13 @@ const VideoChat: React.FC = () => {
   const handleNextCall = useCallback(async () => {
     try {
       console.log('Starting next call...');
-      
+
       // Clear any existing error
       setError(null);
-      
+
       // Reset connection first
       resetConnection();
-      
+
       // Wait a moment for cleanup, then start new call
       const startNewCall = async () => {
         try {
@@ -225,7 +225,7 @@ const VideoChat: React.FC = () => {
               sender: clientIdRef.current
             })
           });
-          
+
           setIsConnecting(true);
           console.log('Next call start request sent');
         } catch (error) {
@@ -247,7 +247,7 @@ const VideoChat: React.FC = () => {
     try {
       const pc = new RTCPeerConnection(ICE_CONFIG);
       console.log("Creating new peer connection");
-      
+
       // ICE candidate handler
       pc.onicecandidate = (event) => {
         if (event.candidate && stompClientRef.current?.connected && currentRoomRef.current) {
@@ -265,52 +265,52 @@ const VideoChat: React.FC = () => {
         }
       };
 
-      
+
 
       pc.ontrack = async (event) => {
-  console.log("Received remote track:", event);
-  console.log("Streams received:", event.streams);
- 
-  if (event.streams && event.streams[0]) {
-    const remoteStream = event.streams[0];
-    console.log("Remote stream tracks:", remoteStream.getTracks());
-    
-    try {
-      // Wait for the video element to be available
-      const remoteVideo = await waitForRemoteVideoRef();
-      console.log("Remote video element is now available:", remoteVideo);
-      
-      // Assign the stream
-      remoteVideo.srcObject = remoteStream;
-      console.log("Remote stream assigned to video element");
-      
-      // Add event listeners
-      remoteVideo.onloadedmetadata = () => {
-        console.log("Remote video metadata loaded");
-        remoteVideo.play().catch(e => console.error("Error playing remote video:", e));
+        console.log("Received remote track:", event);
+        console.log("Streams received:", event.streams);
+
+        if (event.streams && event.streams[0]) {
+          const remoteStream = event.streams[0];
+          console.log("Remote stream tracks:", remoteStream.getTracks());
+
+          try {
+            // Wait for the video element to be available
+            const remoteVideo = await waitForRemoteVideoRef();
+            console.log("Remote video element is now available:", remoteVideo);
+
+            // Assign the stream
+            remoteVideo.srcObject = remoteStream;
+            console.log("Remote stream assigned to video element");
+
+            // Add event listeners
+            remoteVideo.onloadedmetadata = () => {
+              console.log("Remote video metadata loaded");
+              remoteVideo.play().catch(e => console.error("Error playing remote video:", e));
+            };
+            remoteVideo.oncanplay = () => console.log("Remote video can play");
+            remoteVideo.onplaying = () => console.log("Remote video is playing");
+            remoteVideo.onerror = (e) => console.error("Remote video error:", e);
+
+            setIsCallActive(true);
+            setIsConnecting(false);
+
+          } catch (error) {
+            const er = error as Error;
+            console.error("Failed to get remote video element:", er.message);
+          }
+        } else {
+          console.warn("No streams in track event");
+        }
       };
-      remoteVideo.oncanplay = () => console.log("Remote video can play");
-      remoteVideo.onplaying = () => console.log("Remote video is playing");
-      remoteVideo.onerror = (e) => console.error("Remote video error:", e);
-      
-      setIsCallActive(true);
-      setIsConnecting(false);
-      
-    } catch (error) {
-      const er = error as Error;
-      console.error("Failed to get remote video element:", er.message);
-    }
-  } else {
-    console.warn("No streams in track event");
-  }
-};
 
       // Connection state change handler
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
         console.log('Connection state changed to:', state);
         setConnectionState(state);
-        
+
         switch (state) {
           case 'connected':
             console.log('Peer connection established successfully');
@@ -336,7 +336,7 @@ const VideoChat: React.FC = () => {
         const iceState = pc.iceConnectionState;
         console.log('ICE connection state changed to:', iceState);
         setIceConnectionState(iceState);
-        
+
         switch (iceState) {
           case 'connected':
           case 'completed':
@@ -357,7 +357,7 @@ const VideoChat: React.FC = () => {
         const sigState = pc.signalingState;
         console.log('Signaling state changed to:', sigState);
         setSignalingState(sigState);
-        
+
         if (sigState === 'stable') {
           console.log('Signaling stable - processing pending ICE candidates');
           processPendingIceCandidates();
@@ -394,7 +394,7 @@ const VideoChat: React.FC = () => {
   const handleRemoteOffer = useCallback(async (offer: RTCSessionDescriptionInit, sender: string) => {
     try {
       console.log('Handling remote offer from:', sender);
-      
+
       if (!stompClientRef.current?.connected || !currentRoomRef.current) {
         throw new Error('Not connected to signaling server or no room assigned');
       }
@@ -405,9 +405,9 @@ const VideoChat: React.FC = () => {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
-      
+
       setRemotePeerId(sender);
-      
+
       const pc = await createPeerConnection();
       if (!pc) {
         throw new Error('Failed to create peer connection');
@@ -438,7 +438,7 @@ const VideoChat: React.FC = () => {
         })
       });
       console.log('Answer sent');
-      
+
     } catch (error) {
       console.error('Offer handling error:', error);
       setError(`Failed to handle offer: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -458,13 +458,15 @@ const VideoChat: React.FC = () => {
           break;
 
         case 'lobby-info':
-          { const lobbyData = message.data as { [userId: string]: boolean | null };
-          const processedData: UserStatus = {};
-          Object.entries(lobbyData).forEach(([userId, status]) => {
-            processedData[userId] = status;
-          });
-          setOnlineUsers(processedData);
-          break; }
+          {
+            const lobbyData = message.data as { [userId: string]: boolean | null };
+            const processedData: UserStatus = {};
+            Object.entries(lobbyData).forEach(([userId, status]) => {
+              processedData[userId] = status;
+            });
+            setOnlineUsers(processedData);
+            break;
+          }
 
         case 'join':
           if (message.data === clientIdRef.current) break;
@@ -474,7 +476,7 @@ const VideoChat: React.FC = () => {
         case 'leave':
           if (message.data === clientIdRef.current) break;
           setOnlineUsers(prev => {
-            const newStatus = {...prev};
+            const newStatus = { ...prev };
             delete newStatus[message.data];
             return newStatus;
           });
@@ -484,12 +486,12 @@ const VideoChat: React.FC = () => {
           if (message.data === clientIdRef.current) break;
           setOnlineUsers(prev => {
             if (prev[message.data] !== undefined) {
-              return {...prev, [message.data]: true};
+              return { ...prev, [message.data]: true };
             }
             return prev;
           });
           break;
-          
+
         case 'offerer':
           console.log('Assigned as offerer for room:', message.data);
           currentRoomRef.current = message.data;
@@ -505,18 +507,18 @@ const VideoChat: React.FC = () => {
           setIsInRoom(true);
           setIsConnecting(true);
           break;
-          
+
         case 'call-ended':
           console.log('Call ended:', message.data);
           setError('Call ended: ' + message.data);
           resetConnection();
           break;
-          
+
         case 'offer':
           console.log('Received offer from:', message.sender);
           await handleRemoteOffer(message.data, message.sender);
           break;
-          
+
         case 'answer':
           console.log('Received answer from:', message.sender);
           if (!peerConnectionRef.current) {
@@ -525,7 +527,7 @@ const VideoChat: React.FC = () => {
           }
           setRemotePeerId(message.sender);
           console.log('Current signaling state:', peerConnectionRef.current.signalingState);
-          
+
           if (peerConnectionRef.current.signalingState === 'have-local-offer') {
             try {
               await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(message.data));
@@ -538,7 +540,7 @@ const VideoChat: React.FC = () => {
             console.warn(`Received answer in unexpected state: ${peerConnectionRef.current.signalingState}`);
           }
           break;
-          
+
         case 'ice-candidate':
           console.log('Received ICE candidate from:', message.sender);
           if (!peerConnectionRef.current) {
@@ -549,7 +551,7 @@ const VideoChat: React.FC = () => {
           try {
             const candidate = new RTCIceCandidate(message.data);
             console.log('ICE candidate:', candidate);
-            
+
             // Check if remote description is set
             if (peerConnectionRef.current.remoteDescription) {
               await peerConnectionRef.current.addIceCandidate(candidate);
@@ -565,16 +567,18 @@ const VideoChat: React.FC = () => {
           }
           break;
 
-          case 'chat':
-  { const chatMsg: ChatMessage = {
-    id: crypto.randomUUID(),
-    sender: message.sender,
-    message: message.data,
-    timestamp: new Date(message.timestamp || Date.now()),
-    isSelf: message.sender === clientIdRef.current
-  };
-  setChatMessages(prev => [...prev, chatMsg]);
-  break; }
+        case 'chat':
+          {
+            const chatMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              sender: message.sender,
+              message: message.data,
+              timestamp: new Date(message.timestamp || Date.now()),
+              isSelf: message.sender === clientIdRef.current
+            };
+            setChatMessages(prev => [...prev, chatMsg]);
+            break;
+          }
 
       }
     } catch (error) {
@@ -585,25 +589,25 @@ const VideoChat: React.FC = () => {
 
 
   const handleChatMessage = (text: string) => {
-  if (!text.trim() || !remotePeerId) return;
-  const msg: ChatMessage = { id: crypto.randomUUID(), sender: clientIdRef.current, message: text.trim(), timestamp: new Date(), isSelf: true };
-  setChatMessages(p => [...p, msg]);
-  console.log(`trying to send the message in the room ${currentRoomRef.current}`)
-  stompClientRef.current?.publish({
-    destination: `/app/chat/${currentRoomRef.current}`,
-    body: JSON.stringify({ type: 'chat', data: text.trim()  , sender: clientIdRef.current })
-  });
-  setChatInput('');
-};
+    if (!text.trim() || !remotePeerId) return;
+    const msg: ChatMessage = { id: crypto.randomUUID(), sender: clientIdRef.current, message: text.trim(), timestamp: new Date(), isSelf: true };
+    setChatMessages(p => [...p, msg]);
+    console.log(`trying to send the message in the room ${currentRoomRef.current}`)
+    stompClientRef.current?.publish({
+      destination: `/app/chat/${currentRoomRef.current}`,
+      body: JSON.stringify({ type: 'chat', data: text.trim(), sender: clientIdRef.current })
+    });
+    setChatInput('');
+  };
 
-const toggleMicrophone = () => {
-  const audio = localStreamRef.current?.getAudioTracks()[0];
-  if (audio) { audio.enabled = !audio.enabled; setIsMuted(!audio.enabled); }
-};
-const toggleVideo = () => {
-  const video = localStreamRef.current?.getVideoTracks()[0];
-  if (video) { video.enabled = !video.enabled; setIsVideoOff(!video.enabled); }
-};
+  const toggleMicrophone = () => {
+    const audio = localStreamRef.current?.getAudioTracks()[0];
+    if (audio) { audio.enabled = !audio.enabled; setIsMuted(!audio.enabled); }
+  };
+  const toggleVideo = () => {
+    const video = localStreamRef.current?.getVideoTracks()[0];
+    if (video) { video.enabled = !video.enabled; setIsVideoOff(!video.enabled); }
+  };
 
   // Start call with a peer
   const startCall = useCallback(async () => {
@@ -629,7 +633,7 @@ const toggleVideo = () => {
           sender: clientIdRef.current
         })
       });
-      
+
       setIsConnecting(true);
       console.log('Call start request sent');
     } catch (error) {
@@ -642,38 +646,49 @@ const toggleVideo = () => {
   // Initialize WebSocket connection
   useEffect(() => {
     const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => {
+        const getSocketUrl = () => {
+          if (import.meta.env.VITE_API_URL) {
+            return `${import.meta.env.VITE_API_URL}/ws`;
+          }
+          if (import.meta.env.DEV) {
+            return 'http://localhost:8080/ws';
+          }
+          return '/ws'; // Production fallback (relative path for Nginx proxy)
+        };
+        return new SockJS(getSocketUrl());
+      },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
       debug: (str) => console.log('STOMP:', str),
-      
+
       onConnect: () => {
         console.log("WebSocket connected successfully");
         setConnectionStatus('connected');
-        
+
         // Subscribe to all channels
-        client.subscribe('/topic/lobby-status', (message) => 
-          handleSignalingMessage(JSON.parse(message.body)));
-          
-        client.subscribe('/user/'+ clientIdRef.current + '/queue/private/lobby-info', (message) => 
-          handleSignalingMessage(JSON.parse(message.body)));
-          
-        client.subscribe('/user/'+ clientIdRef.current +'/queue/private/lobby-update', (message) => 
-          handleSignalingMessage(JSON.parse(message.body)));
-          
-        client.subscribe('/user/' + clientIdRef.current +'/queue/private/room-assignment', (message) => 
-          handleSignalingMessage(JSON.parse(message.body)));
-          
-        client.subscribe('/user/'+ clientIdRef.current +'/queue/private/call-ended', (message) => 
+        client.subscribe('/topic/lobby-status', (message) =>
           handleSignalingMessage(JSON.parse(message.body)));
 
-        client.subscribe('/user/'+ clientIdRef.current +'/queue/private/signal/', (message) => 
+        client.subscribe('/user/' + clientIdRef.current + '/queue/private/lobby-info', (message) =>
           handleSignalingMessage(JSON.parse(message.body)));
-        
-        client.subscribe('/user/'+ clientIdRef.current +'/queue/private/chat/', (message) => 
+
+        client.subscribe('/user/' + clientIdRef.current + '/queue/private/lobby-update', (message) =>
           handleSignalingMessage(JSON.parse(message.body)));
-        
+
+        client.subscribe('/user/' + clientIdRef.current + '/queue/private/room-assignment', (message) =>
+          handleSignalingMessage(JSON.parse(message.body)));
+
+        client.subscribe('/user/' + clientIdRef.current + '/queue/private/call-ended', (message) =>
+          handleSignalingMessage(JSON.parse(message.body)));
+
+        client.subscribe('/user/' + clientIdRef.current + '/queue/private/signal/', (message) =>
+          handleSignalingMessage(JSON.parse(message.body)));
+
+        client.subscribe('/user/' + clientIdRef.current + '/queue/private/chat/', (message) =>
+          handleSignalingMessage(JSON.parse(message.body)));
+
         // Send join message
         client.publish({
           destination: '/app/join',
@@ -683,13 +698,13 @@ const toggleVideo = () => {
           })
         });
       },
-      
+
       onDisconnect: () => {
         console.log("WebSocket disconnected");
         setConnectionStatus('disconnected');
-          resetConnection();
+        resetConnection();
       },
-      
+
       onStompError: (frame) => {
         console.error('STOMP error:', frame);
         setError(frame.headers?.message || 'WebSocket error');
@@ -730,7 +745,7 @@ const toggleVideo = () => {
         await pc.setLocalDescription(offer);
         console.log("Offer created and local description set");
 
-        stompClientRef.current?.publish({ 
+        stompClientRef.current?.publish({
           destination: `/app/signal/${currentRoomRef.current}`,
           body: JSON.stringify({
             type: 'offer',
@@ -751,100 +766,100 @@ const toggleVideo = () => {
 
   // Render method with improved status display
   return (
-  <div className={styles['vc-root']}>
-    {/* Header Bar */}
-    <div className={styles['vc-header']}>
-      <div className={styles['vc-header-left']}>
-        <VideoIcon className={styles['vc-header-icon']} />
-        <span className={styles['vc-header-title']}>Video Call</span>
-        <span className={styles['vc-header-room']}>Room: {currentRoomRef.current || '----'}</span>
+    <div className={styles['vc-root']}>
+      {/* Header Bar */}
+      <div className={styles['vc-header']}>
+        <div className={styles['vc-header-left']}>
+          <VideoIcon className={styles['vc-header-icon']} />
+          <span className={styles['vc-header-title']}>Video Call</span>
+          <span className={styles['vc-header-room']}>Room: {currentRoomRef.current || '----'}</span>
+        </div>
+        <div className={styles['vc-header-right']}>
+          <span className={styles['vc-online-dot']}></span>
+          <span className={styles['vc-header-online']}>{Object.keys(onlineUsers).length} Online</span>
+        </div>
       </div>
-      <div className={styles['vc-header-right']}>
-        <span className={styles['vc-online-dot']}></span>
-        <span className={styles['vc-header-online']}>{Object.keys(onlineUsers).length} Online</span>
-      </div>
-    </div>
-    {/* Main Area */}
-    <div className={styles['vc-main']}>
-      {/* Video Area */}
-      <div className={styles['vc-video-area']}>
-        <div className={styles['vc-remote-video-wrap']}>
-          <video ref={remoteVideoRef} autoPlay playsInline className={styles['vc-remote-video']} />
-          <span className={styles['vc-label'] + ' ' + styles['stranger']}>{remotePeerId ? remotePeerId.slice(0, 8) + '...' : 'Stranger'}</span>
-          {/* Local video as overlay */}
-          <div className={styles['vc-local-video-overlay']}>
-            <video ref={localVideoRef} autoPlay muted playsInline className={styles['vc-local-video']} />
-            <span className={styles['vc-label'] + ' ' + styles['you']}>Local</span>
+      {/* Main Area */}
+      <div className={styles['vc-main']}>
+        {/* Video Area */}
+        <div className={styles['vc-video-area']}>
+          <div className={styles['vc-remote-video-wrap']}>
+            <video ref={remoteVideoRef} autoPlay playsInline className={styles['vc-remote-video']} />
+            <span className={styles['vc-label'] + ' ' + styles['stranger']}>{remotePeerId ? remotePeerId.slice(0, 8) + '...' : 'Stranger'}</span>
+            {/* Local video as overlay */}
+            <div className={styles['vc-local-video-overlay']}>
+              <video ref={localVideoRef} autoPlay muted playsInline className={styles['vc-local-video']} />
+              <span className={styles['vc-label'] + ' ' + styles['you']}>Local</span>
+            </div>
+            {/* Loading overlay when connecting */}
+            {isConnecting && (
+              <div className={styles['vc-loading-overlay']}>
+                <div className={styles['vc-loading-content']}>
+                  <div className={styles['vc-loading-spinner']}></div>
+                  <span className={styles['vc-loading-text']}>Finding new peer...</span>
+                </div>
+              </div>
+            )}
           </div>
-          {/* Loading overlay when connecting */}
-          {isConnecting && (
-            <div className={styles['vc-loading-overlay']}>
-              <div className={styles['vc-loading-content']}>
-                <div className={styles['vc-loading-spinner']}></div>
-                <span className={styles['vc-loading-text']}>Finding new peer...</span>
-              </div>
-            </div>
-          )}
+          {/* Controls */}
+          <div className={styles['vc-controls']}>
+            {!isCallActive && !isConnecting ? (
+              <button onClick={startCall} className={`${styles['vc-btn']} ${styles['vc-btn-start']}`} title="Start Call">
+                Start Call
+              </button>
+            ) : (
+              <>
+                <button onClick={toggleMicrophone} className={`${styles['vc-btn']} ${isMuted ? styles['vc-muted'] : ''}`} title="Toggle Mic">{isMuted ? <MicOff size={24} /> : <Mic size={24} />}</button>
+                <button onClick={toggleVideo} className={`${styles['vc-btn']} ${isVideoOff ? styles['vc-muted'] : ''}`} title="Toggle Video">{isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}</button>
+                <button onClick={resetConnection} className={styles['vc-btn'] + ' ' + styles['vc-btn-end']} title="End Call"><PhoneOff size={24} /></button>
+                <button onClick={handleNextCall} className={styles['vc-btn'] + ' ' + styles['vc-btn-next']} title="Next"><SkipForward size={24} /></button>
+              </>
+            )}
+          </div>
         </div>
-        {/* Controls */}
-        <div className={styles['vc-controls']}>
-          {!isCallActive && !isConnecting ? (
-            <button onClick={startCall} className={`${styles['vc-btn']} ${styles['vc-btn-start']}`} title="Start Call">
-              Start Call
-            </button>
-          ) : (
-            <>
-              <button onClick={toggleMicrophone} className={`${styles['vc-btn']} ${isMuted ? styles['vc-muted'] : ''}`} title="Toggle Mic">{isMuted ? <MicOff size={24} /> : <Mic size={24} />}</button>
-              <button onClick={toggleVideo} className={`${styles['vc-btn']} ${isVideoOff ? styles['vc-muted'] : ''}`} title="Toggle Video">{isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}</button>
-              <button onClick={resetConnection} className={styles['vc-btn'] + ' ' + styles['vc-btn-end']} title="End Call"><PhoneOff size={24} /></button>
-              <button onClick={handleNextCall} className={styles['vc-btn'] + ' ' + styles['vc-btn-next']} title="Next"><SkipForward size={24} /></button>
-            </>
-          )}
+        {/* Chat Panel */}
+        <div className={styles['vc-chat-section']}>
+          <div className={styles['vc-chat-header']}><MessageCircle className={styles['vc-chat-header-icon']} /> Chat</div>
+          <div className={styles['vc-chat-body']} ref={chatContainerRef}>
+            {chatMessages.map(m => (
+              <div key={m.id} className={styles['vc-chat-msg'] + ' ' + (m.isSelf ? styles['self'] : styles['other'])}>
+                <div className={styles['vc-chat-bubble'] + ' ' + (m.isSelf ? styles['self'] : styles['other'])}>
+                  <span>{m.message}</span>
+                  <span className={styles['vc-chat-time']}>{m.timestamp.toLocaleTimeString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <form className={styles['vc-chat-input']} onSubmit={e => {
+            e.preventDefault();
+            if (chatInput.trim() && remotePeerId) {
+              handleChatMessage(chatInput);
+            }
+          }}>
+            <input
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              placeholder="Type a message..."
+              disabled={!remotePeerId}
+              className={styles['vc-chat-input-box']}
+            />
+            <button type="submit" disabled={!remotePeerId || !chatInput.trim()} className={styles['vc-chat-send']}><Send size={18} /></button>
+          </form>
         </div>
       </div>
-      {/* Chat Panel */}
-      <div className={styles['vc-chat-section']}>
-        <div className={styles['vc-chat-header']}><MessageCircle className={styles['vc-chat-header-icon']} /> Chat</div>
-        <div className={styles['vc-chat-body']} ref={chatContainerRef}>
-          {chatMessages.map(m => (
-            <div key={m.id} className={styles['vc-chat-msg'] + ' ' + (m.isSelf ? styles['self'] : styles['other'])}>
-              <div className={styles['vc-chat-bubble'] + ' ' + (m.isSelf ? styles['self'] : styles['other'])}>
-                <span>{m.message}</span>
-                <span className={styles['vc-chat-time']}>{m.timestamp.toLocaleTimeString()}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-        <form className={styles['vc-chat-input']} onSubmit={e => { 
-          e.preventDefault(); 
-          if (chatInput.trim() && remotePeerId) {
-            handleChatMessage(chatInput);
-          }
-        }}>
-          <input
-            value={chatInput}
-            onChange={e => setChatInput(e.target.value)}
-            placeholder="Type a message..."
-            disabled={!remotePeerId}
-            className={styles['vc-chat-input-box']}
-          />
-          <button type="submit" disabled={!remotePeerId || !chatInput.trim()} className={styles['vc-chat-send']}><Send size={18} /></button>
-        </form>
+      {/* Status Bar */}
+      <div className={styles['vc-status-bar']}>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {connectionStatus}</div>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Peer Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {connectionState}</div>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>ICE Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {iceConnectionState}</div>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Signaling:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {signalingState}</div>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Online Users:</span> {Object.keys(onlineUsers).length}</div>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Role:</span> {roleRef.current || 'None'}</div>
+        <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Client ID:</span> {clientIdRef.current.slice(0, 8) + ' ...'}</div>
       </div>
+      {error && <div className={styles['vc-error-toast']}>{error}</div>}
     </div>
-    {/* Status Bar */}
-    <div className={styles['vc-status-bar']}>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {connectionStatus}</div>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Peer Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {connectionState}</div>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>ICE Connection:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {iceConnectionState}</div>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Signaling:</span> <span className={styles['vc-status-dot'] + ' ' + styles['connected']}></span> {signalingState}</div>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Online Users:</span> {Object.keys(onlineUsers).length}</div>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Role:</span> {roleRef.current || 'None'}</div>
-      <div className={styles['vc-status-item']}><span className={styles['vc-status-label']}>Client ID:</span> {clientIdRef.current.slice(0, 8) + ' ...'}</div>
-    </div>
-    {error && <div className={styles['vc-error-toast']}>{error}</div>}
-  </div>
-);
+  );
 
 };
 
