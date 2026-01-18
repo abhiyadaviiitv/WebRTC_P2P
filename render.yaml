@@ -4,7 +4,7 @@ services:
     name: webrtc-backend
     env: docker
     dockerContext: .
-    dockerfilePath: Dockerfile.backend
+    dockerfilePath: ./Dockerfile.backend
     plan: free
     healthCheckPath: /actuator/health
     envVars:
@@ -16,7 +16,7 @@ services:
     name: webrtc-frontend
     env: docker
     dockerContext: .
-    dockerfilePath: Dockerfile.frontend
+    dockerfilePath: ./Dockerfile.frontend
     plan: free
     envVars:
       - key: PORT
