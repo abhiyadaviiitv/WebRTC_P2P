@@ -1,9 +1,9 @@
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
-COPY pom.xml .
-COPY mvnw .
-COPY .mvn .mvn
-COPY src ./src
+COPY backend_java/p2p/pom.xml .
+COPY backend_java/p2p/mvnw .
+COPY backend_java/p2p/.mvn .mvn
+COPY backend_java/p2p/src ./src
 RUN chmod +x mvnw
 # Build the project, skipping tests to speed up the process
 RUN ./mvnw clean install -DskipTests

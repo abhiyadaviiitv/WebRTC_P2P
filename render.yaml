@@ -3,8 +3,8 @@ services:
   - type: web
     name: webrtc-backend
     env: docker
-    dockerContext: backend_java/p2p
-    dockerfilePath: backend_java/p2p/Dockerfile
+    dockerContext: .
+    dockerfilePath: Dockerfile.backend
     plan: free
     healthCheckPath: /actuator/health
     envVars:
@@ -15,8 +15,8 @@ services:
   - type: web
     name: webrtc-frontend
     env: docker
-    dockerContext: Frontend/webrtcp2p
-    dockerfilePath: Frontend/webrtcp2p/Dockerfile
+    dockerContext: .
+    dockerfilePath: Dockerfile.frontend
     plan: free
     envVars:
       - key: PORT

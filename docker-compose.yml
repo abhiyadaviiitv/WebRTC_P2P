@@ -3,7 +3,8 @@ version: '3.8'
 services:
   backend:
     build:
-      context: ./backend_java/p2p
+      context: .
+      dockerfile: Dockerfile.backend
     container_name: springboot-backend
     ports:
       - "8080:8080"
@@ -15,7 +16,8 @@ services:
 
   frontend:
     build:
-      context: ./Frontend/webrtcp2p
+      context: .
+      dockerfile: Dockerfile.frontend
     container_name: react-frontend
     ports:
       - "5173:80"
